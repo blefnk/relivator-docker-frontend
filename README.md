@@ -1,6 +1,6 @@
-# relivator-docker-frontend
+# Relivator: The Docker Edition (Frontend)
 
-Relivator: The Docker Edition (Frontend) | Backend: <https://github.com/blefnk/relivator-docker-backend>
+Backend's Repo: <https://github.com/blefnk/relivator-docker-backend>
 
 This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
 
