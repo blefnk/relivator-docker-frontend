@@ -4,6 +4,8 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import { ZodError, type ZodIssue } from "zod";
+import fetch from "node-fetch";
+
 import { env } from "~/env.mjs";
 
 type ApiResponseSuccess<T> = {
@@ -56,6 +58,7 @@ function isNextJsError(e: unknown): e is NextJsError {
  */
 class ApiError extends Error {
   status = 500;
+
   constructor(message?: string, ...args: never[]) {
     super(message ?? "Internal Error", ...args);
   }
@@ -118,20 +121,87 @@ export const handler = <T = void, U = NextRouteContext>(
   routeHandler: NextRouteHandler<ApiResponse<T>, U>
 ): NextRouteHandler<ApiResponse<T>, U> => {
   const startTime = new Date();
+
   return async (request: any, context: any) => {
     const method = request.method;
     const url = request.nextUrl.pathname;
-    logger.info(`\n ➡️  ${method} ${url} checking...`);
+
     let response: NextResponse<ApiResponse<T>>;
+    logger.info(`\n ✓ ${method} ${url} Frontend is healthy`);
+
     try {
       response = await routeHandler(request, context);
     } catch (err) {
       response = buildErrorResponse(err);
     }
+
     const responseTime = new Date().getTime() - startTime.getTime();
     logger.info(
-      `\n ⬅️  ${method} ${url} (${response.status}) took ${responseTime}ms`
+      ` ✓ ${method} ${url} (${response.status}) took ${responseTime}ms...\n`
     );
+
+    const backendHealth = await checkBackendHealth();
+    const backendStatusIcon =
+      backendHealth === "Backend is healthy" ? "✓" : "x";
+    logger.info(` ${backendStatusIcon} ${method} ${url} ${backendHealth}\n`);
+
     return response;
   };
+};
+
+/**
+ * Call to check the backend API health,
+ * and return health status as a string.
+ */
+export const checkBackendHealth = async (): Promise<string> => {
+  try {
+    const backendUrl = `${env.NEXT_PUBLIC_BACKEND_URL}/backend-health`;
+
+    const response = await fetch(backendUrl, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (response.ok) {
+      return "Backend is healthy";
+    } else {
+      return "Backend is unhealthy";
+    }
+  } catch (error) {
+    console.error("Error checking backend health:", error);
+    return "Backend is unhealthy";
+  }
+};
+
+type FrontendHealthResponse = {
+  status: string;
+  frontend_health: boolean;
+};
+
+/**
+ * Call from frontend to check the frontend
+ * API health, based on backend's response.
+ *
+ * todo: Remove if it doesn't have solid purpose.
+ */
+const checkFrontendHealth = async (): Promise<boolean> => {
+  try {
+    const backendUrl = `${env.NEXT_PUBLIC_BACKEND_URL}/frontend-health`;
+
+    const response = await fetch(backendUrl, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    const data = (await response.json()) as Promise<FrontendHealthResponse>;
+    const responseData = await data;
+    return responseData.frontend_health;
+  } catch (error) {
+    console.error("Error checking frontend health:", error);
+    return false;
+  }
 };

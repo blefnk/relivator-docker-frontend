@@ -6,22 +6,33 @@
  */
 
 import { NextResponse } from "next/server";
-import { handler } from "~/server/health";
+import { checkBackendHealth, handler } from "~/server/health";
 
-type ResponseData = { health: string };
+type ResponseData = {
+  frontendHealth: string;
+  backendHealth: string;
+};
 
 /**
- * This variable is automatically set during the deployment.
+ * This variable is automatically
+ * set during the Vercel deployment.
  */
 const gitSha = process.env.VERCEL_GIT_COMMIT_SHA ?? "local";
 
-export const GET = handler<ResponseData>(() => {
-  /**
-   * Check API endpoint health which returns with success if
-   * server is healthy and responds with the latest git sha.
-   */
+/**
+ * Check the API endpoint health which returns with success if
+ * server is healthy and responds with the required responses.
+ *
+ * @see http://localhost:3000/api/health
+ */
+export const GET = handler<ResponseData>(async () => {
+  const backendHealth = await checkBackendHealth();
+
   return NextResponse.json({
     ok: true,
-    data: { health: gitSha.substring(0, 7) },
+    data: {
+      backendHealth,
+      frontendHealth: gitSha.substring(0, 7),
+    },
   });
 });
